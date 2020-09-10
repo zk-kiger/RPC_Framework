@@ -1,0 +1,5 @@
+# Project exclude paths
+/rpc-framework-common/target/
+/rpc-framework-core/target/
+/service-consumer/target/
+/service-provider/target/
