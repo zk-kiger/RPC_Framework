@@ -1,14 +1,21 @@
 package com.kiger.regist_discovery;
 
+import com.kiger.entity.RpcServiceProperties;
+import com.kiger.enumeration.spi.ServiceRegistryEnum;
+import com.kiger.extension_spi.ExtensionLoader;
 import com.kiger.factory.SingletonFactory;
 import com.kiger.provider_centre.ServiceProvider;
 import com.kiger.provider_centre.impl.CurrentHashMapServiceProviderImpl;
+import com.kiger.regist_discovery.discovery.ServiceDiscovery;
 import com.kiger.regist_discovery.registry.ServiceRegistry;
 import com.kiger.regist_discovery.registry.impl.ZKServiceRegistry;
 import com.kiger.remoting.transport.netty.server.NettyServer;
 import lombok.Data;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
 /**
@@ -28,11 +35,19 @@ public class ServiceRegister {
     private ServiceRegistry serviceRegistry;
     private ServiceProvider serviceProvider;
 
+    @SneakyThrows
+    public ServiceRegister() {
+        nettyServer = new NettyServer(InetAddress.getLocalHost().getHostAddress(), NettyServer.PORT);
+        serviceProvider = SingletonFactory.getInstance(CurrentHashMapServiceProviderImpl.class);
+        serviceRegistry =
+                ExtensionLoader.getExtensionLoader(ServiceRegistry.class).getExtension(ServiceRegistryEnum.ZOOKEEPER.getName());
+    }
+
     public ServiceRegister(String host, int port) {
         // TODO 将 netty 的 host 和 port 可改为可配置的
         nettyServer = new NettyServer(host, port);
         serviceProvider = SingletonFactory.getInstance(CurrentHashMapServiceProviderImpl.class);
-        serviceRegistry = new ZKServiceRegistry();
+        serviceRegistry = ExtensionLoader.getExtensionLoader(ServiceRegistry.class).getExtension(ServiceRegistryEnum.ZOOKEEPER.getName());
     }
 
     /**
@@ -49,4 +64,26 @@ public class ServiceRegister {
         serviceRegistry.registerService(serviceClass.getCanonicalName(), new InetSocketAddress(nettyServer.getHost(), nettyServer.getPort()));
         nettyServer.start();
     }
+
+    /**
+     * 基于注解发布一个服务
+     *
+     * @param service               服务实例
+     * @param rpcServiceProperties  服务相关版本配置
+     */
+    public void publishService(Object service, RpcServiceProperties rpcServiceProperties) {
+        Class<?> serviceRelatedInterface = service.getClass().getInterfaces()[0];
+        String serviceName = serviceRelatedInterface.getCanonicalName();
+        rpcServiceProperties.setServiceName(serviceName);
+
+        // 1.将服务保存到服务提供方的提供中心
+        serviceProvider.addService(service, serviceRelatedInterface, rpcServiceProperties);
+        // 2.将服务注册到注册中心，便于消费者发现
+        serviceRegistry.registerService(rpcServiceProperties.toRpcServiceName(),
+                new InetSocketAddress(nettyServer.getHost(), nettyServer.getPort()));
+        // 3.开启服务提供方的 netty 通道
+        nettyServer.start();
+    }
+
+
 }

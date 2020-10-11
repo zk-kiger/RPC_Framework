@@ -1,5 +1,6 @@
 package com.kiger.remoting.transport;
 
+import com.kiger.extension_spi.SPI;
 import com.kiger.remoting.to.RpcRequest;
 
 /**
@@ -8,6 +9,7 @@ import com.kiger.remoting.to.RpcRequest;
  * @date 2020/7/11
  */
 
+@SPI
 public interface ClientTransport {
     /**
      * 发送消息到服务端

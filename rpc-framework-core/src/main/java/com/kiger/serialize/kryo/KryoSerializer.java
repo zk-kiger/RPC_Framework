@@ -1,4 +1,4 @@
-package com.kiger.serialize.kyro;
+package com.kiger.serialize.kryo;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;

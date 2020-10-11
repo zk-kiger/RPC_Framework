@@ -1,5 +1,6 @@
 package com.kiger.remoting.to;
 
+import com.kiger.entity.RpcServiceProperties;
 import com.kiger.enumeration.RpcMessageTypeEnum;
 import lombok.*;
 
@@ -22,5 +23,13 @@ public class RpcRequest implements Serializable {
     private String methodName;
     private Object[] parameters;
     private Class<?>[] paramTypes;
+    private String group;
+    private String version;
     private RpcMessageTypeEnum rpcMessageTypeEnum;
+
+    public RpcServiceProperties toRpcProperties() {
+        return RpcServiceProperties.builder().serviceName(this.getInterfaceName())
+                .version(this.getVersion())
+                .group(this.getGroup()).build();
+    }
 }

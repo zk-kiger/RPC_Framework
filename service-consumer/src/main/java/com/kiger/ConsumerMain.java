@@ -15,5 +15,7 @@ public class ConsumerMain {
         // 消费方只需要获取到代理对象执行方法即可
         HelloService helloService = new RpcClientProxy().getProxy(HelloService.class);
         helloService.hello("你好，提供方!");
+        String result = helloService.send("你好，啦啦啦！");
+        System.out.println(result);
     }
 }

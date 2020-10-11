@@ -1,7 +1,11 @@
 package com.kiger.remoting.transport.netty.client;
 
+import com.kiger.enumeration.CompressTypeEnum;
 import com.kiger.enumeration.RpcMessageTypeEnum;
+import com.kiger.enumeration.SerializationTypeEnum;
 import com.kiger.factory.SingletonFactory;
+import com.kiger.remoting.constants.RpcConstants;
+import com.kiger.remoting.to.RpcMessage;
 import com.kiger.remoting.to.RpcRequest;
 import com.kiger.remoting.to.RpcResponse;
 import io.netty.channel.Channel;
@@ -31,17 +35,30 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
+        log.info("client receive msg: [{}]", msg);
         try {
-            log.info("client receive msg: [{}]", msg);
-            RpcResponse rpcResponse = (RpcResponse) msg;
-            unprocessedRequests.complete(rpcResponse);
+            if (msg instanceof RpcMessage) {
+                RpcMessage message = (RpcMessage) msg;
+                byte messageType = message.getMessageType();
+                // server to client for heart beat
+                if (messageType == RpcConstants.HEARTBEAT_RESPONSE_TYPE) {
+                    log.info("heart [{}]", message.getData());
+                }
+                // server to client for call result
+                else if (messageType == RpcConstants.RESPONSE_TYPE) {
+                    RpcResponse<Object> rpcResponse = (RpcResponse<Object>) message.getData();
+                    unprocessedRequests.complete(rpcResponse);
+                }
+            }
         } finally {
             ReferenceCountUtil.release(msg);
         }
     }
 
     /**
-     * 客户端触发写超时方法 - 客户端 5s 内没有向服务端发送数据，就向服务端发送一次心跳，维持与客户端的连接
+     * Client triggered write timeout method -
+     * the client sends a heartbeat to the server if it has not sent data to the server
+     * in 5s to maintain the connection with the server.
      */
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
@@ -50,8 +67,12 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
             if (state == IdleState.WRITER_IDLE) {
                 log.info("write idle happen [{}]", ctx.channel().remoteAddress());
                 Channel channel = ChannelProvider.get((InetSocketAddress) ctx.channel().remoteAddress());
-                RpcRequest rpcRequest = RpcRequest.builder().rpcMessageTypeEnum(RpcMessageTypeEnum.HEART_BEAT).build();
-                channel.writeAndFlush(rpcRequest).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                RpcMessage rpcMessage = new RpcMessage();
+                rpcMessage.setCodec(SerializationTypeEnum.KYRO.getCode());
+                rpcMessage.setCompress(CompressTypeEnum.GZIP.getCode());
+                rpcMessage.setMessageType(RpcConstants.HEARTBEAT_REQUEST_TYPE);
+                rpcMessage.setData(RpcConstants.PING);
+                channel.writeAndFlush(rpcMessage).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
             }
         } else {
             super.userEventTriggered(ctx, evt);
@@ -59,7 +80,7 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
     }
 
     /**
-     * 客户端异常处理
+     * Called when an exception occurs in processing a client message
      */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {

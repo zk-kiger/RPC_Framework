@@ -8,4 +8,6 @@ package com.kiger.service;
 public interface HelloService {
 
     void hello(String msg);
+
+    String send(String msg);
 }

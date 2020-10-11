@@ -1,7 +1,7 @@
 package com.kiger.remoting.to;
 
 import com.kiger.enumeration.RpcErrorMessageEnum;
-import com.kiger.enumeration.RpcResponseCode;
+import com.kiger.enumeration.RpcResponseCodeEnum;
 import com.kiger.exception.RpcException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,7 +24,7 @@ public final class RpcMessageChecker {
             throw new RpcException(RpcErrorMessageEnum.REQUEST_NOT_MATCH_RESPONSE, INTERFACE_NAME + ":" + rpcRequest.getInterfaceName());
         }
 
-        if (rpcResponse.getCode() == null || !rpcResponse.getCode().equals(RpcResponseCode.SUCCESS.getCode())) {
+        if (rpcResponse.getCode() == null || !rpcResponse.getCode().equals(RpcResponseCodeEnum.SUCCESS.getCode())) {
             throw new RpcException(RpcErrorMessageEnum.SERVICE_INVOCATION_FAILURE, INTERFACE_NAME + ":" + rpcRequest.getInterfaceName());
         }
     }

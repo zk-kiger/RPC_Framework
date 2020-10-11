@@ -1,7 +1,13 @@
 package com.kiger.remoting.transport.netty.server;
 
+import com.kiger.enumeration.CompressTypeEnum;
 import com.kiger.enumeration.RpcMessageTypeEnum;
+import com.kiger.enumeration.RpcResponseCodeEnum;
+import com.kiger.enumeration.SerializationTypeEnum;
+import com.kiger.factory.SingletonFactory;
+import com.kiger.remoting.constants.RpcConstants;
 import com.kiger.remoting.handler.RpcRequestHandler;
+import com.kiger.remoting.to.RpcMessage;
 import com.kiger.remoting.to.RpcRequest;
 import com.kiger.remoting.to.RpcResponse;
 import io.netty.channel.ChannelFutureListener;
@@ -13,7 +19,7 @@ import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 服务方处理消息
+ * Customize the ChannelHandler of the server to process the data sent by the client.
  *
  * @author zk_kiger
  * @date 2020/7/10
@@ -25,37 +31,56 @@ public class NettyServerHandler extends ChannelInboundHandlerAdapter {
     private final RpcRequestHandler rpcRequestHandler;
 
     public NettyServerHandler() {
-        this.rpcRequestHandler = new RpcRequestHandler();
+        this.rpcRequestHandler = SingletonFactory.getInstance(RpcRequestHandler.class);
     }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         try {
-            log.info("server receive msg: [{}] ", msg);
-            RpcRequest rpcRequest = (RpcRequest) msg;
-            if (rpcRequest.getRpcMessageTypeEnum() == RpcMessageTypeEnum.HEART_BEAT) {
-                log.info("receive heat beat msg from client");
-                return;
-            }
-            // 执行目标方法，并且返回执行结果
-            Object result = rpcRequestHandler.handler(rpcRequest);
-            if (result != null)
-                log.info("server get result: [{}]", result.toString());
-            if (ctx.channel().isActive() && ctx.channel().isWritable()) {
-                // 返回方法执行结果给消费端
-                RpcResponse<Object> rpcResponse = RpcResponse.success(result, rpcRequest.getRequestId());
-                ctx.writeAndFlush(rpcResponse).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
-            } else {
-                log.error("not writable now, message dropped");
+            if (msg instanceof RpcMessage) {
+                log.info("server receive msg: [{}] ", msg);
+                byte messageType = ((RpcMessage) msg).getMessageType();
+                if (messageType == RpcConstants.HEARTBEAT_REQUEST_TYPE) {
+                    log.info("receive heat beat msg from client");
+                    RpcMessage rpcMessage = RpcMessage.builder()
+                            .codec(SerializationTypeEnum.KYRO.getCode())
+                            .compress(CompressTypeEnum.GZIP.getCode())
+                            .messageType(RpcConstants.HEARTBEAT_RESPONSE_TYPE)
+                            .data(RpcConstants.PONG).build();
+                    ctx.writeAndFlush(rpcMessage).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                } else {
+                    RpcRequest rpcRequest = (RpcRequest) ((RpcMessage) msg).getData();
+                    // Execute the target method (the method the client needs to execute) and return the method result.
+                    Object result = rpcRequestHandler.handler(rpcRequest);
+                    log.info("server get result: [{}]", result.toString());
+                    if (ctx.channel().isActive() && ctx.channel().isWritable()) {
+                        RpcResponse<Object> rpcResponse = RpcResponse.success(result, rpcRequest.getRequestId());
+                        RpcMessage rpcMessage = RpcMessage.builder()
+                                .codec(SerializationTypeEnum.KYRO.getCode())
+                                .compress(CompressTypeEnum.GZIP.getCode())
+                                .messageType(RpcConstants.RESPONSE_TYPE)
+                                .data(rpcResponse).build();
+                        ctx.writeAndFlush(rpcMessage).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                    } else {
+                        RpcResponse<Object> rpcResponse = RpcResponse.fail(RpcResponseCodeEnum.FAIL);
+                        RpcMessage rpcMessage = RpcMessage.builder()
+                                .codec(SerializationTypeEnum.KYRO.getCode())
+                                .compress(CompressTypeEnum.GZIP.getCode())
+                                .messageType(RpcConstants.RESPONSE_TYPE)
+                                .data(rpcResponse).build();
+                        ctx.writeAndFlush(rpcMessage).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                        log.error("not writable now, message dropped");
+                    }
+                }
             }
         } finally {
-            // 确保 ByteBuf 被释放，不然可能会有内存泄露问题
+            // Ensure that ByteBuf is released, otherwise there may be memory leaks!
             ReferenceCountUtil.release(msg);
         }
     }
 
     /**
-     * 服务端读超时 - 30s 内没有收到客户端的心跳或者消息，关闭连接
+     * Server read timeout - no client heartbeat or message received for 30s, close connection
      */
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
@@ -70,9 +95,6 @@ public class NettyServerHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    /**
-     * 异常处理
-     */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("server catch exception");

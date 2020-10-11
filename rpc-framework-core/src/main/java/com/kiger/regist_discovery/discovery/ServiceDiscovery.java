@@ -1,5 +1,7 @@
 package com.kiger.regist_discovery.discovery;
 
+import com.kiger.extension_spi.SPI;
+
 import java.net.InetSocketAddress;
 
 /**
@@ -8,6 +10,7 @@ import java.net.InetSocketAddress;
  * @date 2020/7/11
  */
 
+@SPI
 public interface ServiceDiscovery {
     /**
      * 查找服务

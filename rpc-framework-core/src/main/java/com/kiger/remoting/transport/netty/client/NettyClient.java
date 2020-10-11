@@ -1,22 +1,16 @@
 package com.kiger.remoting.transport.netty.client;
 
-import com.kiger.remoting.to.RpcRequest;
-import com.kiger.remoting.to.RpcResponse;
-import com.kiger.serialize.kyro.KryoSerializer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.netty.handler.timeout.IdleStateHandler;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author zk_kiger
@@ -40,7 +34,7 @@ public class NettyClient {
     }
 
     @SneakyThrows
-    public Channel doConnect(InetSocketAddress inetSocketAddress) {
+    public Channel doConnect(InetSocketAddress inetSocketAddress) throws IllegalStateException {
         // 异步任务结果由于接收与服务端建立好的 channel 通道
         CompletableFuture<Channel> completableFuture = new CompletableFuture<>();
         bootstrap.connect(inetSocketAddress).addListener((ChannelFutureListener) future -> {
@@ -48,7 +42,7 @@ public class NettyClient {
                 log.info("客户端连接成功!");
                 completableFuture.complete(future.channel());
             } else {
-                throw new IllegalStateException();
+                completableFuture.complete(null);
             }
         });
         return completableFuture.get();

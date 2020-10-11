@@ -1,5 +1,8 @@
 package com.kiger.proxy;
 
+import com.kiger.entity.RpcServiceProperties;
+import com.kiger.enumeration.spi.ClientTransportEnum;
+import com.kiger.extension_spi.ExtensionLoader;
 import com.kiger.factory.SingletonFactory;
 import com.kiger.remoting.to.RpcMessageChecker;
 import com.kiger.remoting.to.RpcRequest;
@@ -23,10 +26,28 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class RpcClientProxy implements InvocationHandler {
 
-    private ClientTransport clientTransport;
+    /**
+     * use client send rpcRequest to the server.And there has two implementations: socket and netty.
+     */
+    private final ClientTransport clientTransport;
+
+    private final RpcServiceProperties rpcServiceProperties;
 
     public RpcClientProxy() {
-        this.clientTransport = SingletonFactory.getInstance(NettyClientTransport.class);
+        this.clientTransport =
+                ExtensionLoader.getExtensionLoader(ClientTransport.class).getExtension(ClientTransportEnum.NETTY_CLIENT_TRANSPORT.getName());
+        this.rpcServiceProperties = null;
+    }
+
+    public RpcClientProxy(RpcServiceProperties rpcServiceProperties) {
+        this.clientTransport = ExtensionLoader.getExtensionLoader(ClientTransport.class).getExtension(ClientTransportEnum.NETTY_CLIENT_TRANSPORT.getName());
+        if (rpcServiceProperties.getGroup() == null) {
+            rpcServiceProperties.setGroup("");
+        }
+        if (rpcServiceProperties.getVersion() == null) {
+            rpcServiceProperties.setVersion("");
+        }
+        this.rpcServiceProperties = rpcServiceProperties;
     }
 
     /**
@@ -49,11 +70,13 @@ public class RpcClientProxy implements InvocationHandler {
                 .interfaceName(method.getDeclaringClass().getName())
                 .paramTypes(method.getParameterTypes())
                 .requestId(UUID.randomUUID().toString())
+                .group(rpcServiceProperties.getGroup())
+                .version(rpcServiceProperties.getVersion())
                 .build();
-        RpcResponse rpcResponse = null;
+        RpcResponse<Object> rpcResponse = null;
 
         if (clientTransport instanceof NettyClientTransport) {
-            CompletableFuture<RpcResponse> completableFuture = (CompletableFuture<RpcResponse>) clientTransport.sendRpcRequest(rpcRequest);
+            CompletableFuture<RpcResponse<Object>> completableFuture = (CompletableFuture<RpcResponse<Object>>) clientTransport.sendRpcRequest(rpcRequest);
             rpcResponse = completableFuture.get();
         }
 

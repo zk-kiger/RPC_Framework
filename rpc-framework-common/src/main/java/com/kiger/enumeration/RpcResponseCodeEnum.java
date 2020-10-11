@@ -11,7 +11,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @Getter
 @ToString
-public enum RpcResponseCode {
+public enum RpcResponseCodeEnum {
 
     SUCCESS(200, "调用方法成功"),
     FAIL(500, "调用方法失败"),

@@ -1,5 +1,6 @@
 package com.kiger.provider_centre.impl;
 
+import com.kiger.entity.RpcServiceProperties;
 import com.kiger.enumeration.RpcErrorMessageEnum;
 import com.kiger.exception.RpcException;
 import com.kiger.provider_centre.ServiceProvider;
@@ -46,5 +47,25 @@ public class CurrentHashMapServiceProviderImpl implements ServiceProvider {
             throw new RpcException(RpcErrorMessageEnum.SERVICE_CAN_NOT_BE_FOUND);
         }
         return serviceClass;
+    }
+
+    @Override
+    public void addService(Object service, Class<?> serviceClass, RpcServiceProperties rpcServiceProperties) {
+        String rpcServiceName = rpcServiceProperties.toRpcServiceName();
+        if (registeredService.contains(rpcServiceName)) {
+            return;
+        }
+        registeredService.add(rpcServiceName);
+        serviceMap.put(rpcServiceName, service);
+        log.info("ServiceProvider Add service: {} and interfaces:{}", rpcServiceName, service.getClass().getInterfaces());
+    }
+
+    @Override
+    public Object getService(RpcServiceProperties rpcServiceProperties) {
+        Object service = serviceMap.get(rpcServiceProperties.toRpcServiceName());
+        if (service == null) {
+            throw new RpcException(RpcErrorMessageEnum.SERVICE_CAN_NOT_BE_FOUND);
+        }
+        return service;
     }
 }

@@ -1,13 +1,12 @@
 package com.kiger.remoting.handler;
 
-import com.kiger.enumeration.RpcResponseCode;
+import com.kiger.enumeration.RpcResponseCodeEnum;
 import com.kiger.exception.RpcException;
 import com.kiger.factory.SingletonFactory;
 import com.kiger.provider_centre.ServiceProvider;
 import com.kiger.provider_centre.impl.CurrentHashMapServiceProviderImpl;
 import com.kiger.remoting.to.RpcRequest;
 import com.kiger.remoting.to.RpcResponse;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationTargetException;
@@ -31,7 +30,7 @@ public class RpcRequestHandler {
      */
     public Object handler(RpcRequest rpcRequest) {
         // 通过服务提供中心获取目标类
-        Object service = serviceProvider.getServiceProvider(rpcRequest.getInterfaceName());
+        Object service = serviceProvider.getService(rpcRequest.toRpcProperties());
         // 调用目标类的目标方法
         return invokeTargetMethod(rpcRequest, service);
     }
@@ -44,7 +43,7 @@ public class RpcRequestHandler {
         try {
             Method method = service.getClass().getMethod(rpcRequest.getMethodName(), rpcRequest.getParamTypes());
             if (method == null) {
-                return RpcResponse.fail(RpcResponseCode.NOT_FOUND_METHOD);
+                return RpcResponse.fail(RpcResponseCodeEnum.NOT_FOUND_METHOD);
             }
             result = method.invoke(service, rpcRequest.getParameters());
             log.info("service:[{}] successful invoke method:[{}]", rpcRequest.getInterfaceName(), rpcRequest.getMethodName());

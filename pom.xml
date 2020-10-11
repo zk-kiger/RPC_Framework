@@ -35,6 +35,8 @@
         <junit.platform.version>1.5.2</junit.platform.version>
         <!-- checkstyle -->
         <checkstyle-maven-plugin.version>3.1.1</checkstyle-maven-plugin.version>
+        <!-- spring -->
+        <spring.version>5.2.7.RELEASE</spring.version>
     </properties>
 
     <dependencies>
